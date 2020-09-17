@@ -1,5 +1,5 @@
 import { ValueOf } from 'src/types';
-import { defaultHooks } from './chart-data.constant';
+import { defaultHooks, CHART_DATA_HOOKS } from './chart-data.constant';
 import { BitTradingDataDTO } from './dto/chart-data.dto';
 
 export interface CandleStick {
@@ -40,6 +40,6 @@ export function down(trend: Trend) {
 }
 
 export type ChartHooks = Record<
-  keyof ReturnType<typeof defaultHooks>,
+  keyof typeof CHART_DATA_HOOKS,
   ((data: BitTradingDataDTO) => void)[]
 >;
