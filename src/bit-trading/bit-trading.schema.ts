@@ -16,11 +16,17 @@ export class Player extends Document {
   @Prop({ required: true })
   password: string;
 
+  @Prop({ required: true })
+  token: string;
+
+  @Prop({ required: true })
+  expiredDate: string;
+
   @Prop()
   script: string;
 
-  @Prop({ type: Boolean })
-  auto: boolean;
+  @Prop({ type: Boolean, default: false })
+  isAuto: boolean;
 }
 
 export const PlayerSchema = SchemaFactory.createForClass(Player);

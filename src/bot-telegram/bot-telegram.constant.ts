@@ -13,3 +13,7 @@ export const HELP_TXT =
 /autocandle - Auto send signal \n\
 /offcandle - Off auto send signal \n\
 ';
+
+export const MESSAGES = {
+  LOGIN_FAIL: 'ERROR! MẬT KHẨU HOẶC TÀI KHOẢN KHÔNG ĐÚNG',
+};

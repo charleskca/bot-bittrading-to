@@ -1,7 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import * as TelegramBot from 'node-telegram-bot-api';
 import { Cron } from '@nestjs/schedule';
-import { HELP_TXT } from './bot-telegram.constant';
+import { HELP_TXT, MESSAGES } from './bot-telegram.constant';
 import { BitTradingService } from 'src/bit-trading/bit-trading.service';
 
 @Injectable()
@@ -39,7 +39,7 @@ export class BotTelegramService implements OnModuleInit {
     });
 
     this._bot.onText(
-      /^\/L\s*([0-9]+)*&([a-zA-Z0-9#?!@$%^&*-]+)$/,
+      /^\/(D|L)\s*([0-9]+)*&([a-zA-Z0-9#?!@$%^&*-]+)$/,
       (msg, match) => {
         if (msg.from.is_bot) {
           return;
@@ -53,16 +53,18 @@ export class BotTelegramService implements OnModuleInit {
         }
         const myTelegramId = msg.chat.id;
         this._bot.deleteMessage(myTelegramId, String(msg.message_id));
-        let info = msg.text.substring(1).split('&');
+        const info = msg.text.substring(1).split('&');
+
         if (info.length < 1) return;
         const [username, password] = info;
         this.bitTradingService
-          .login(username, password)
+          .login(msg.chat.id, username, password)
           .then(res => {
             this.botSendMessage(msg.chat.id, 'Login successfully');
           })
           .catch(err => {
-            this.botSendMessage(msg.chat.id, err.errorMessage);
+            console.log(err.data);
+            this.botSendMessage(msg.chat.id, MESSAGES.LOGIN_FAIL);
           });
       },
     );
