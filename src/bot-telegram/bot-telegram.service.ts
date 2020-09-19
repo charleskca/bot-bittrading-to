@@ -3,6 +3,7 @@ import * as TelegramBot from 'node-telegram-bot-api';
 import { Cron } from '@nestjs/schedule';
 import { HELP_TXT, MESSAGES } from './bot-telegram.constant';
 import { BitTradingService } from 'src/bit-trading/bit-trading.service';
+import { getTelegramId } from './bot-telegram.util';
 
 @Injectable()
 export class BotTelegramService implements OnModuleInit {
@@ -26,7 +27,8 @@ export class BotTelegramService implements OnModuleInit {
       if (msg.from.is_bot) {
         return;
       }
-      this.botSendMessage(msg.chat.id, HELP_TXT, {
+      const workspaceId = msg.chat.id;
+      this.botSendMessage(workspaceId, HELP_TXT, {
         parse_mode: 'HTML',
       });
     });
@@ -40,7 +42,7 @@ export class BotTelegramService implements OnModuleInit {
 
     this._bot.onText(
       /^\/(D|L)\s*([0-9]+)*&([a-zA-Z0-9#?!@$%^&*-]+)$/,
-      (msg, match) => {
+      async (msg, match) => {
         if (msg.from.is_bot) {
           return;
         }
@@ -51,23 +53,79 @@ export class BotTelegramService implements OnModuleInit {
           );
           return;
         }
-        const myTelegramId = msg.chat.id;
-        this._bot.deleteMessage(myTelegramId, String(msg.message_id));
+
+        const myTelegramId = getTelegramId(msg);
+        const workspaceId = msg.chat.id;
+        this._bot
+          .deleteMessage(myTelegramId, String(msg.message_id))
+          .catch(() => {});
         const info = msg.text.substring(1).split('&');
 
         if (info.length < 1) return;
         const [username, password] = info;
         this.bitTradingService
-          .login(msg.chat.id, username, password)
+          .login(myTelegramId, username, password)
           .then(res => {
-            this.botSendMessage(msg.chat.id, 'Login successfully');
+            this.botSendMessage(workspaceId, 'Login successfully');
           })
           .catch(err => {
             console.log(err.data);
-            this.botSendMessage(msg.chat.id, MESSAGES.LOGIN_FAIL);
+            this.botSendMessage(workspaceId, MESSAGES.LOGIN_FAIL);
           });
       },
     );
+
+    this._bot.onText(/^\/(script::)\w*$/, async (msg, match) => {
+      if (msg.from.is_bot) {
+        return;
+      }
+      const myTelegramId = getTelegramId(msg);
+      const workspaceId = msg.chat.id;
+      const scriptData = msg.text.substring(1);
+
+      try {
+        const player = await this.bitTradingService.updateScriptOfPlayer(
+          {
+            telegramId: myTelegramId,
+          },
+          scriptData,
+        );
+        if (player.script !== scriptData) {
+          throw 'ERROR!';
+        }
+        this.botSendMessage(workspaceId, `SCRIPT UPDATED: ${player.script}`);
+      } catch (error) {
+        this.botSendMessage(workspaceId, `UPDATE SCRIPT FAIL`);
+      }
+    });
+
+    this._bot.onText(/^\/(stop)*$/, async (msg, match) => {
+      const myTelegramId = getTelegramId(msg);
+      const workspaceId = msg.chat.id;
+      try {
+        const data = await this.bitTradingService.updateAutoStatusOfPlayer(
+          {
+            telegramId: myTelegramId,
+          },
+          false,
+        );
+        this.botSendMessage(workspaceId, `is Stop: ${data.isAuto}`);
+      } catch (error) {}
+    });
+
+    this._bot.onText(/^\/(trade)*$/, async (msg, match) => {
+      const myTelegramId = getTelegramId(msg);
+      const workspaceId = msg.chat.id;
+      try {
+        const data = await this.bitTradingService.updateAutoStatusOfPlayer(
+          {
+            telegramId: myTelegramId,
+          },
+          true,
+        );
+        this.botSendMessage(workspaceId, `is Trade: ${data.isAuto}`);
+      } catch (error) {}
+    });
   }
 
   get bot() {

@@ -10,10 +10,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Player } from './bit-trading.schema';
 import { Model } from 'mongoose';
 import { CreatePlayerDto } from './dto/create-player.dto';
-import {
-  PlayerParamsFilter,
-  updateAutoStatusOfPlayerFilter,
-} from './bit-trading.interface';
+import { PlayerParamsFilter } from './bit-trading.interface';
 
 @Injectable()
 export class BitTradingService {
