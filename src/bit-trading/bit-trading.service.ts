@@ -31,6 +31,15 @@ export class BitTradingService {
 
   watchChartDataChanged(data: BitTradingDataDTO) {
     // console.log(data.history.map(a => a.type));
+    // console.log(this.chartDataService.data);
+    // console.log(data)
+    if (data.serverTime.canOrder) {
+      if (data.serverTime.second === '1') {
+        // query redis
+        // dataUser.script
+        // console.log(data.serverTime.second);
+      }
+    }
   }
 
   async createPlayer(createPlayerDto: CreatePlayerDto) {
@@ -63,6 +72,7 @@ export class BitTradingService {
     if (autoStatus !== player.isAuto && !!player.script) {
       player.isAuto = autoStatus;
       player.save();
+      // jobRedis
     }
     return player;
   }
@@ -72,11 +82,13 @@ export class BitTradingService {
     if (script && player.script !== script) {
       player.script = script;
       player.save();
+      // jobRedis
     }
     return player;
   }
 
   login(telegramId = 0, username: string, password: string) {
+    // console.log(this.chartDataService.);
     return this.httpService
       .post(BIT_TRADING_API.login, {
         AccountName: username,

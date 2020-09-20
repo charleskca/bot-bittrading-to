@@ -47,11 +47,11 @@ export class ChartDataService implements OnModuleInit {
     );
   }
 
-  get getSocket() {
+  get socket() {
     return this._socket;
   }
 
-  get getData() {
+  get data() {
     return this._data;
   }
 
