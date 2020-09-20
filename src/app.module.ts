@@ -8,7 +8,7 @@ import { BitTradingModule } from './bit-trading/bit-trading.module';
 import { ChartDataModule } from './chart-data/chart-data.module';
 import { BotTelegramModule } from './bot-telegram/bot-telegram.module';
 import { ConfigModule } from '@nestjs/config';
-
+import { QueueModule } from './queue/queue.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -22,6 +22,7 @@ import { ConfigModule } from '@nestjs/config';
     BitTradingModule,
     ChartDataModule,
     BotTelegramModule,
+    QueueModule,
   ],
   controllers: [AppController],
   providers: [AppService],

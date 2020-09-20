@@ -11,13 +11,15 @@ import { Player } from './bit-trading.schema';
 import { Model } from 'mongoose';
 import { CreatePlayerDto } from './dto/create-player.dto';
 import { PlayerParamsFilter } from './bit-trading.interface';
+import { QueueService } from 'src/queue/queue.service';
 
 @Injectable()
 export class BitTradingService {
   constructor(
-    @InjectModel(Player.name) private playerModel: Model<Player>,
-    private httpService: HttpService,
+    private readonly queueSevice: QueueService,
     private readonly chartDataService: ChartDataService,
+    private httpService: HttpService,
+    @InjectModel(Player.name) private playerModel: Model<Player>,
   ) {
     this._bindObservers();
   }
@@ -72,7 +74,7 @@ export class BitTradingService {
     if (autoStatus !== player.isAuto && !!player.script) {
       player.isAuto = autoStatus;
       player.save();
-      // jobRedis
+      this.queueSevice.updateStatusPlayer(player);
     }
     return player;
   }
@@ -82,13 +84,12 @@ export class BitTradingService {
     if (script && player.script !== script) {
       player.script = script;
       player.save();
-      // jobRedis
+      this.queueSevice.updateScriptPlayer(player);
     }
     return player;
   }
 
   login(telegramId = 0, username: string, password: string) {
-    // console.log(this.chartDataService.);
     return this.httpService
       .post(BIT_TRADING_API.login, {
         AccountName: username,
