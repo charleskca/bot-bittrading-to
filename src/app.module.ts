@@ -9,6 +9,7 @@ import { ChartDataModule } from './chart-data/chart-data.module';
 import { BotTelegramModule } from './bot-telegram/bot-telegram.module';
 import { ConfigModule } from '@nestjs/config';
 import { QueueModule } from './queue/queue.module';
+import { RedisModule } from './redis/redis.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -23,6 +24,7 @@ import { QueueModule } from './queue/queue.module';
     ChartDataModule,
     BotTelegramModule,
     QueueModule,
+    RedisModule,
   ],
   controllers: [AppController],
   providers: [AppService],

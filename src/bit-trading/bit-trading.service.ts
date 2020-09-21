@@ -80,6 +80,10 @@ export class BitTradingService implements OnModuleInit {
     return this.redisClient.hmset(PLAYER_TRADES, dataNeedRecord);
   }
 
+  async findAllPlayer(filter: any = {}) {
+    return this.playerModel.find(filter);
+  }
+
   async createPlayer(createPlayerDto: CreatePlayerDto) {
     const player = await new this.playerModel(createPlayerDto);
     return player.save();

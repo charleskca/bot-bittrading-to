@@ -3,6 +3,8 @@ import { BullModule } from '@nestjs/bull';
 import { QueueService } from './queue.service';
 import { QueueConsumer } from './queue.consumer';
 import { BIT_TRADING_QUEUE } from './queue.constant';
+import { RedisModule } from 'src/redis/redis.module';
+import { BitTradingModule } from 'src/bit-trading/bit-trading.module';
 
 @Module({
   imports: [
@@ -15,6 +17,8 @@ import { BIT_TRADING_QUEUE } from './queue.constant';
         },
       }),
     }),
+    // RedisModule,
+    // BitTradingModule,
   ],
   providers: [QueueService, QueueConsumer],
   exports: [QueueService],
