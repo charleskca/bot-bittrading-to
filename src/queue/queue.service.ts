@@ -10,9 +10,9 @@ export class QueueService {
     @InjectQueue(BIT_TRADING_QUEUE)
     private _queue: Queue,
   ) {
-    this._queue.add('confirmation', {
-      foo: 'bar',
-    });
+    // this._queue.add('confirmation', {
+    //   foo: 'bar',
+    // });
   }
 
   addPlayer(player: CreatePlayerDto) {

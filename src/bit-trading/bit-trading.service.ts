@@ -1,10 +1,18 @@
-import { Injectable, HttpService } from '@nestjs/common';
+import {
+  Injectable,
+  HttpService,
+  CACHE_MANAGER,
+  Inject,
+  OnModuleInit,
+} from '@nestjs/common';
 import { catchError, map } from 'rxjs/operators';
 import { throwError } from 'rxjs';
+import { Cache } from 'cache-manager';
+import * as redis from 'redis';
 
 import { ChartDataService } from 'src/chart-data/chart-data.service';
 import { CHART_DATA_HOOKS } from 'src/chart-data/chart-data.constant';
-import { BIT_TRADING_API } from './bit-trading.constant';
+import { BIT_TRADING_API, PLAYER_TRADES } from './bit-trading.constant';
 import { BitTradingDataDTO } from 'src/chart-data/dto/chart-data.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Player } from './bit-trading.schema';
@@ -12,14 +20,23 @@ import { Model } from 'mongoose';
 import { CreatePlayerDto } from './dto/create-player.dto';
 import { PlayerParamsFilter } from './bit-trading.interface';
 import { QueueService } from 'src/queue/queue.service';
+import { promisify } from 'util';
 
 @Injectable()
-export class BitTradingService {
+export class BitTradingService implements OnModuleInit {
+  redisClient: redis.RedisClient;
+  onModuleInit() {
+    this.redisClient = redis.createClient({
+      host: process.env.REDIS_URI || 'localhost',
+      port: process.env.REDIS_PORT ? Number(process.env.REDIS_PORT) : 6379,
+    });
+  }
+
   constructor(
     private readonly queueSevice: QueueService,
     private readonly chartDataService: ChartDataService,
     private httpService: HttpService,
-    @InjectModel(Player.name) private playerModel: Model<Player>,
+    @InjectModel(Player.name) private playerModel: Model<Player>, // @Inject(CACHE_MANAGER) private readonly cache: Cache,
   ) {
     this._bindObservers();
   }
@@ -44,6 +61,25 @@ export class BitTradingService {
     }
   }
 
+  async getPlayerTrades(id?: string) {
+    if (id) {
+      const getAsync = promisify(this.redisClient.hmget).bind(this.redisClient);
+      return await getAsync(PLAYER_TRADES, id);
+    }
+    const getAsync = promisify(this.redisClient.hgetall).bind(this.redisClient);
+    return await getAsync(PLAYER_TRADES);
+  }
+
+  async syncMongoToCacheRedis(value: Player[] | null = null) {
+    let dataNeedCache = !!value ? value : await this.playerModel.find();
+    const dataNeedRecord = dataNeedCache.reduce((acc, cur) => {
+      acc[cur._id] = JSON.stringify(cur);
+      return acc;
+    }, {} as Record<string, string>);
+
+    return this.redisClient.hmset(PLAYER_TRADES, dataNeedRecord);
+  }
+
   async createPlayer(createPlayerDto: CreatePlayerDto) {
     const player = await new this.playerModel(createPlayerDto);
     return player.save();
@@ -63,6 +99,7 @@ export class BitTradingService {
     if (!player) {
       return this.createPlayer(createPlayerDto);
     }
+    this.syncMongoToCacheRedis();
     return player;
   }
 

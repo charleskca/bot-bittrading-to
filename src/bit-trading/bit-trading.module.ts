@@ -4,6 +4,7 @@ import { BitTradingService } from './bit-trading.service';
 import { Player, PlayerSchema } from './bit-trading.schema';
 import { MongooseModule } from '@nestjs/mongoose';
 import { QueueModule } from 'src/queue/queue.module';
+import { BitTradingController } from './bit-trading.controller';
 
 @Module({
   imports: [
@@ -17,5 +18,6 @@ import { QueueModule } from 'src/queue/queue.module';
   ],
   providers: [BitTradingService],
   exports: [BitTradingService],
+  controllers: [BitTradingController],
 })
 export class BitTradingModule {}
