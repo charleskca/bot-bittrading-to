@@ -7,7 +7,7 @@ import {
   Processor,
 } from '@nestjs/bull';
 import { Job } from 'bull';
-import { BIT_TRADING_QUEUE } from './queue.constant';
+import { BIT_TRADING_QUEUE, SYNC_PLAYER_DATA_TO_CACHE } from './queue.constant';
 
 @Processor(BIT_TRADING_QUEUE)
 export class QueueConsumer {
@@ -77,6 +77,9 @@ export class QueueConsumer {
     //   throw error;
     // }
   }
+
+  @Process(SYNC_PLAYER_DATA_TO_CACHE)
+  async syncPlayerDataToCache() {}
 
   @OnQueueProgress()
   test(job: Job, progress: number) {

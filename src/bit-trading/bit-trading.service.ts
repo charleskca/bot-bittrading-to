@@ -36,7 +36,7 @@ export class BitTradingService implements OnModuleInit {
     private readonly queueSevice: QueueService,
     private readonly chartDataService: ChartDataService,
     private httpService: HttpService,
-    @InjectModel(Player.name) private playerModel: Model<Player>, // @Inject(CACHE_MANAGER) private readonly cache: Cache,
+    @InjectModel(Player.name) private playerModel: Model<Player>,
   ) {
     this._bindObservers();
   }
@@ -99,7 +99,6 @@ export class BitTradingService implements OnModuleInit {
     if (!player) {
       return this.createPlayer(createPlayerDto);
     }
-    this.syncMongoToCacheRedis();
     return player;
   }
 

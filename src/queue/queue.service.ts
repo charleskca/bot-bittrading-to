@@ -2,7 +2,12 @@ import { InjectQueue } from '@nestjs/bull';
 import { Injectable } from '@nestjs/common';
 import { Queue } from 'bull';
 import { CreatePlayerDto } from 'src/bit-trading/dto/create-player.dto';
-import { ADD_REPORT, ADD_USER, BIT_TRADING_QUEUE } from './queue.constant';
+import {
+  ADD_REPORT,
+  ADD_USER,
+  BIT_TRADING_QUEUE,
+  SYNC_PLAYER_DATA_TO_CACHE,
+} from './queue.constant';
 
 @Injectable()
 export class QueueService {
@@ -24,6 +29,10 @@ export class QueueService {
       player,
       report,
     });
+  }
+
+  asyncPlayerToRedisCache() {
+    this._queue.add(SYNC_PLAYER_DATA_TO_CACHE);
   }
 
   updateStatusPlayer(player) {}
