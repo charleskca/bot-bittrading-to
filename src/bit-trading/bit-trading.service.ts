@@ -21,22 +21,18 @@ import { CreatePlayerDto } from './dto/create-player.dto';
 import { PlayerParamsFilter } from './bit-trading.interface';
 import { QueueService } from 'src/queue/queue.service';
 import { promisify } from 'util';
+import { RedisService } from 'src/redis/redis.service';
 
 @Injectable()
 export class BitTradingService implements OnModuleInit {
-  redisClient: redis.RedisClient;
-  onModuleInit() {
-    this.redisClient = redis.createClient({
-      host: process.env.REDIS_URI || 'localhost',
-      port: process.env.REDIS_PORT ? Number(process.env.REDIS_PORT) : 6379,
-    });
-  }
+  onModuleInit() {}
 
   constructor(
     private readonly queueSevice: QueueService,
     private readonly chartDataService: ChartDataService,
     private httpService: HttpService,
     @InjectModel(Player.name) private playerModel: Model<Player>,
+    private readonly redisService: RedisService,
   ) {
     this._bindObservers();
   }
@@ -62,22 +58,12 @@ export class BitTradingService implements OnModuleInit {
   }
 
   async getPlayerTrades(id?: string) {
-    if (id) {
-      const getAsync = promisify(this.redisClient.hmget).bind(this.redisClient);
-      return await getAsync(PLAYER_TRADES, id);
-    }
-    const getAsync = promisify(this.redisClient.hgetall).bind(this.redisClient);
-    return await getAsync(PLAYER_TRADES);
+    return this.redisService.getPlayerTrades(id);
   }
 
   async syncMongoToCacheRedis(value: Player[] | null = null) {
-    let dataNeedCache = !!value ? value : await this.playerModel.find();
-    const dataNeedRecord = dataNeedCache.reduce((acc, cur) => {
-      acc[cur._id] = JSON.stringify(cur);
-      return acc;
-    }, {} as Record<string, string>);
-
-    return this.redisClient.hmset(PLAYER_TRADES, dataNeedRecord);
+    this.queueSevice.asyncPlayerToRedisCache();
+    return {};
   }
 
   async findAllPlayer(filter: any = {}) {
@@ -114,7 +100,7 @@ export class BitTradingService implements OnModuleInit {
     if (autoStatus !== player.isAuto && !!player.script) {
       player.isAuto = autoStatus;
       player.save();
-      this.queueSevice.updateStatusPlayer(player);
+      this.queueSevice.asyncPlayerToRedisCache();
     }
     return player;
   }
@@ -124,7 +110,7 @@ export class BitTradingService implements OnModuleInit {
     if (script && player.script !== script) {
       player.script = script;
       player.save();
-      this.queueSevice.updateScriptPlayer(player);
+      this.queueSevice.asyncPlayerToRedisCache();
     }
     return player;
   }

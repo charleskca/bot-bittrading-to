@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
 import { QueueService } from './queue.service';
 import { QueueConsumer } from './queue.consumer';
@@ -17,8 +17,8 @@ import { BitTradingModule } from 'src/bit-trading/bit-trading.module';
         },
       }),
     }),
-    // RedisModule,
-    // BitTradingModule,
+    RedisModule,
+    forwardRef(() => BitTradingModule),
   ],
   providers: [QueueService, QueueConsumer],
   exports: [QueueService],

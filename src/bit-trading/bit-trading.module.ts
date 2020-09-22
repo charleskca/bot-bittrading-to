@@ -5,6 +5,7 @@ import { Player, PlayerSchema } from './bit-trading.schema';
 import { MongooseModule } from '@nestjs/mongoose';
 import { QueueModule } from 'src/queue/queue.module';
 import { BitTradingController } from './bit-trading.controller';
+import { RedisModule } from 'src/redis/redis.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { BitTradingController } from './bit-trading.controller';
     }),
     ChartDataModule,
     QueueModule,
+    RedisModule,
   ],
   providers: [BitTradingService],
   exports: [BitTradingService],

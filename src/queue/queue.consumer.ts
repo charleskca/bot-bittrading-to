@@ -7,6 +7,8 @@ import {
   Processor,
 } from '@nestjs/bull';
 import { Job } from 'bull';
+import { BitTradingService } from 'src/bit-trading/bit-trading.service';
+import { RedisService } from 'src/redis/redis.service';
 import { BIT_TRADING_QUEUE, SYNC_PLAYER_DATA_TO_CACHE } from './queue.constant';
 
 @Processor(BIT_TRADING_QUEUE)
@@ -19,6 +21,11 @@ export class QueueConsumer {
       )}`,
     );
   }
+
+  constructor(
+    private readonly bitTradingService: BitTradingService,
+    private readonly redisService: RedisService,
+  ) {}
 
   @OnQueueCompleted()
   onComplete(job: Job, result: any) {
@@ -38,51 +45,33 @@ export class QueueConsumer {
     );
   }
 
-  @Process('confirmation')
-  async sendWelcomeEmail(job: Job<{ user: any; code: string }>): Promise<any> {
-    let progress = 0;
-    for (let i = 0; i < 100; i++) {
-      //   await doSomething(job.data);
-      progress += 10;
-      // job.progress(1);
-      // job
+  @Process(SYNC_PLAYER_DATA_TO_CACHE)
+  async syncPlayerDataToCache(job: Job): Promise<any> {
+    try {
+      const players = await this.bitTradingService.findAllPlayer({
+        isAuto: true,
+      });
+      job.progress(30);
+
+      const playerRecords = players.reduce((acc, cur) => {
+        acc[cur._id] = JSON.stringify(cur);
+        return acc;
+      }, {} as Record<string, string>);
+      job.progress(60);
+
+      if (Object.keys(playerRecords).length) {
+        await this.redisService.syncMongoToCacheRedis(playerRecords);
+      }
+      job.progress(100);
+      return true;
+    } catch (error) {
+      job.progress(100);
+      throw 'syncPlayerDataToCache Error';
     }
-    // return false;
-    job.progress(200);
-    throw 'error';
-    console.log('QueueProcessor', true);
-    // this.logger.log(`Sending confirmation email to '${job.data.user.email}'`);
-    // const url = `${config.get('server.origin')}/auth/${job.data.code}/confirm`;
-    // if (config.get<boolean>('mail.live')) {
-    //   return 'SENT MOCK CONFIRMATION EMAIL';
-    // }
-    // try {
-    //   const result = await this.mailerService.sendMail({
-    //     template: 'confirmation',
-    //     context: {
-    //       ...plainToClass(User, job.data.user),
-    //       url: url,
-    //     },
-    //     subject: `Welcome to ${config.get(
-    //       'app.name',
-    //     )}! Please Confirm Your Email Address`,
-    //     to: job.data.user.email,
-    //   });
-    //   return result;
-    // } catch (error) {
-    //   this.logger.error(
-    //     `Failed to send confirmation email to '${job.data.user.email}'`,
-    //     error.stack,
-    //   );
-    //   throw error;
-    // }
   }
 
-  @Process(SYNC_PLAYER_DATA_TO_CACHE)
-  async syncPlayerDataToCache() {}
-
   @OnQueueProgress()
-  test(job: Job, progress: number) {
+  onQueueProgress(job: Job, progress: number) {
     console.log(job.name, progress);
   }
 }

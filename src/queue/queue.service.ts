@@ -32,7 +32,7 @@ export class QueueService {
   }
 
   asyncPlayerToRedisCache() {
-    this._queue.add(SYNC_PLAYER_DATA_TO_CACHE);
+    this._queue.add(SYNC_PLAYER_DATA_TO_CACHE, {});
   }
 
   updateStatusPlayer(player) {}
