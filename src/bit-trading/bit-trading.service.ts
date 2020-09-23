@@ -12,20 +12,27 @@ import * as redis from 'redis';
 
 import { ChartDataService } from 'src/chart-data/chart-data.service';
 import { CHART_DATA_HOOKS } from 'src/chart-data/chart-data.constant';
-import { BIT_TRADING_API, PLAYER_TRADES } from './bit-trading.constant';
+import {
+  BET_TYPE,
+  BIT_TRADING_API,
+  PLAYER_TRADES,
+} from './bit-trading.constant';
 import { BitTradingDataDTO } from 'src/chart-data/dto/chart-data.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Player } from './bit-trading.schema';
 import { Model } from 'mongoose';
 import { CreatePlayerDto } from './dto/create-player.dto';
-import { PlayerParamsFilter } from './bit-trading.interface';
+import { IPlayer, PlayerParamsFilter } from './bit-trading.interface';
 import { QueueService } from 'src/queue/queue.service';
 import { promisify } from 'util';
 import { RedisService } from 'src/redis/redis.service';
+import { isExpired } from './bit-trading.util';
 
 @Injectable()
 export class BitTradingService implements OnModuleInit {
   onModuleInit() {}
+
+  _snapshot = [];
 
   constructor(
     private readonly queueSevice: QueueService,
@@ -40,19 +47,44 @@ export class BitTradingService implements OnModuleInit {
   private _bindObservers() {
     this.chartDataService.addHook(
       CHART_DATA_HOOKS.afterChartDataChanged,
-      this.watchChartDataChanged,
+      data => this.watchChartDataChanged(data),
     );
   }
 
-  watchChartDataChanged(data: BitTradingDataDTO) {
+  async watchChartDataChanged(data: BitTradingDataDTO) {
     // console.log(data.history.map(a => a.type));
     // console.log(this.chartDataService.data);
-    // console.log(data)
+    console.log(data.serverTime);
+    console.log(data.data.slice(data.data.length - 8, data.data.length));
+    // console.log(JSON.stringify(data.history));
     if (data.serverTime.canOrder) {
-      if (data.serverTime.second === '1') {
-        // query redis
-        // dataUser.script
-        // console.log(data.serverTime.second);
+      console.log(data.serverTime.second);
+      if (Number(data.serverTime.second) === 1) {
+        const playerRecords = await this.redisService.getPlayerTrades();
+        const players: IPlayer[] = Object.values(playerRecords).map(player =>
+          JSON.parse(player),
+        );
+        players.forEach(player => {
+          if (!player.isAuto) {
+            return;
+          }
+          const isTokenExpired = isExpired(player.expiredDate);
+          if (isTokenExpired) {
+            this.onLogin(0, player.accountName, player.password)
+              .then(() => {
+                console.log(`refresh token ${player.accountName} SUCCESS`);
+              })
+              .catch(() => {
+                console.log(`refresh token ${player.accountName} FAIL`);
+              });
+          } else {
+            // Order in here
+            this.onOrder(player.token, BET_TYPE.BUY, 1).catch(err => {
+              console.log('order', err);
+            });
+          }
+        });
+        console.log(data.serverTime);
       }
     }
   }
@@ -88,7 +120,15 @@ export class BitTradingService implements OnModuleInit {
     });
     if (!player) {
       return this.createPlayer(createPlayerDto);
+    } else {
+      player.expiredDate = createPlayerDto.expiredDate;
+      player.token = createPlayerDto.token;
+      if (player.password !== createPlayerDto.password) {
+        player.password = createPlayerDto.token;
+      }
+      player.save();
     }
+    this.queueSevice.asyncPlayerToRedisCache();
     return player;
   }
 
@@ -115,7 +155,7 @@ export class BitTradingService implements OnModuleInit {
     return player;
   }
 
-  login(telegramId = 0, username: string, password: string) {
+  onLogin(telegramId = 0, username: string, password: string) {
     return this.httpService
       .post(BIT_TRADING_API.login, {
         AccountName: username,
@@ -138,5 +178,46 @@ export class BitTradingService implements OnModuleInit {
         }),
       )
       .toPromise();
+  }
+
+  onOrder(token: string, betType: number, amount: number) {
+    return this.httpService
+      .post(
+        BIT_TRADING_API.order,
+        {
+          Amount: amount,
+          BetType: betType,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      )
+      .toPromise();
+  }
+
+  onGetResultOrder(token: string) {
+    return this.httpService.get(BIT_TRADING_API.getResultOrder, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  }
+
+  onGetBalance(token: string) {
+    return this.httpService.get(BIT_TRADING_API.getBalance, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  }
+
+  onGetOrderHistory(token: string) {
+    return this.httpService.get(BIT_TRADING_API.getOrderHistory, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
   }
 }

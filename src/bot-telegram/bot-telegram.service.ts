@@ -64,7 +64,7 @@ export class BotTelegramService implements OnModuleInit {
         if (info.length < 1) return;
         const [username, password] = info;
         this.bitTradingService
-          .login(myTelegramId, username, password)
+          .onLogin(myTelegramId, username, password)
           .then(res => {
             this.botSendMessage(workspaceId, 'Login successfully');
           })

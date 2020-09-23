@@ -9,3 +9,8 @@ export const BIT_TRADING_API = {
 };
 
 export const PLAYER_TRADES = 'PLAYER_TRADES';
+
+export const BET_TYPE = {
+  BUY: 1,
+  SELL: 0,
+};

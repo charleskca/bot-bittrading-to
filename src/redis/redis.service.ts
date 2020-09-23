@@ -24,9 +24,9 @@ export class RedisService implements OnModuleInit {
   async getPlayerTrades(id?: string) {
     if (id) {
       const getAsync = promisify(this.redisClient.hmget).bind(this.redisClient);
-      return await getAsync(PLAYER_TRADES, id);
+      return (await getAsync(PLAYER_TRADES, id)) as string;
     }
     const getAsync = promisify(this.redisClient.hgetall).bind(this.redisClient);
-    return await getAsync(PLAYER_TRADES);
+    return (await getAsync(PLAYER_TRADES)) as Record<string, string>;
   }
 }
