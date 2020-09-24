@@ -18,6 +18,7 @@ export class QueueService {
     // this._queue.add('confirmation', {
     //   foo: 'bar',
     // });
+    this.asyncPlayerToRedisCache();
   }
 
   addPlayer(player: CreatePlayerDto) {

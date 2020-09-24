@@ -1,4 +1,4 @@
-import { Prop, Schema, SchemaFactory, PropOptions } from '@nestjs/mongoose';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 

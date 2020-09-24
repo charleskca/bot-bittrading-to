@@ -11,6 +11,7 @@ export class RedisService implements OnModuleInit {
       host: process.env.REDIS_URI || 'localhost',
       port: process.env.REDIS_PORT ? Number(process.env.REDIS_PORT) : 6379,
     });
+    this._redisClient.del(PLAYER_TRADES);
   }
 
   get redisClient() {

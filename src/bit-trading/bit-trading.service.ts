@@ -54,13 +54,13 @@ export class BitTradingService implements OnModuleInit {
   async watchChartDataChanged(data: BitTradingDataDTO) {
     // console.log(data.history.map(a => a.type));
     // console.log(this.chartDataService.data);
-    console.log(data.serverTime);
-    console.log(data.data.slice(data.data.length - 8, data.data.length));
+    // console.log(data.serverTime);
+    // console.log(data.data.slice(data.data.length - 8, data.data.length));
     // console.log(JSON.stringify(data.history));
     if (data.serverTime.canOrder) {
       console.log(data.serverTime.second);
       if (Number(data.serverTime.second) === 1) {
-        const playerRecords = await this.redisService.getPlayerTrades();
+        const playerRecords = (await this.redisService.getPlayerTrades()) || {};
         const players: IPlayer[] = Object.values(playerRecords).map(player =>
           JSON.parse(player),
         );
@@ -98,7 +98,7 @@ export class BitTradingService implements OnModuleInit {
     return {};
   }
 
-  async findAllPlayer(filter: any = {}) {
+  async findAllPlayer(filter: PlayerParamsFilter = {}) {
     return this.playerModel.find(filter);
   }
 
@@ -112,8 +112,6 @@ export class BitTradingService implements OnModuleInit {
       $or: [
         {
           accountName: createPlayerDto.accountName,
-        },
-        {
           telegramId: createPlayerDto.telegramId,
         },
       ],
@@ -137,7 +135,7 @@ export class BitTradingService implements OnModuleInit {
     autoStatus: boolean,
   ) {
     let player = await this.playerModel.findOne(filter);
-    if (autoStatus !== player.isAuto && !!player.script) {
+    if (player && autoStatus !== player.isAuto && !!player.script) {
       player.isAuto = autoStatus;
       player.save();
       this.queueSevice.asyncPlayerToRedisCache();

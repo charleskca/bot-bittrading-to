@@ -1,7 +1,16 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import * as TelegramBot from 'node-telegram-bot-api';
 import { Cron } from '@nestjs/schedule';
-import { HELP_TXT, MESSAGES } from './bot-telegram.constant';
+import {
+  HELP_TXT,
+  INFO_TEMPLATE,
+  MESSAGES,
+  SCRIPT_HELP_TXT,
+  SEPARATOR_SCRIPT,
+  STOP_AUTO_TRADE_SUCCESS_TEMPLATE,
+  SUGGEST_TEMPLATE,
+  UPDATE_SCRIPT_TEMPLATE_SUCCESS_TEMPLATE,
+} from './bot-telegram.constant';
 import { BitTradingService } from 'src/bit-trading/bit-trading.service';
 import { getTelegramId } from './bot-telegram.util';
 
@@ -33,12 +42,58 @@ export class BotTelegramService implements OnModuleInit {
       });
     });
 
-    this._bot.onText(/^\/(l|L)ogin$/, (msg, match) => {
+    this._bot.onText(/^\/(l|L)ogin$/, async (msg, match) => {
       this.botSendMessage(
         msg.chat.id,
-        'Please enter flow command:\n /Livenumber&password. Ví dụ: /L900001&123456.',
+        'Vui lòng nhập lệnh luồng:\n /Livenumber&password. Ví dụ: /L900001&123456.',
       );
     });
+
+    this._bot.onText(/^\/(i|I)nfo$/, async (msg, match) => {
+      const myTelegramId = getTelegramId(msg);
+      try {
+        const players =
+          (await this.bitTradingService.findAllPlayer({
+            telegramId: myTelegramId,
+          })) || [];
+        let messages = players
+          .map(player => {
+            return INFO_TEMPLATE(player);
+          })
+          .join('');
+        this.botSendMessage(msg.chat.id, messages, {
+          parse_mode: 'HTML',
+        });
+      } catch (error) {}
+    });
+
+    this._bot.onText(
+      /^\/(s|S)how_script_default__(D|L)\s*([0-9]+)*$/,
+      async (msg, match) => {
+        const myTelegramId = getTelegramId(msg);
+        const payload = msg.text.split(SEPARATOR_SCRIPT);
+        const [actionNm, accountNm] = payload;
+        if (!accountNm.length) return;
+
+        this.botSendMessage(msg.chat.id, SCRIPT_HELP_TXT(accountNm), {
+          parse_mode: 'HTML',
+        });
+      },
+    );
+
+    this._bot.onText(
+      /^\/(s|S)uggest__(D|L)\s*([0-9]+)*$/,
+      async (msg, match) => {
+        const myTelegramId = getTelegramId(msg);
+        const payload = msg.text.split(SEPARATOR_SCRIPT);
+        const [actionNm, accountNm] = payload;
+        if (!accountNm.length) return;
+
+        this.botSendMessage(msg.chat.id, SUGGEST_TEMPLATE(accountNm), {
+          parse_mode: 'HTML',
+        });
+      },
+    );
 
     this._bot.onText(
       /^\/(D|L)\s*([0-9]+)*&([a-zA-Z0-9#?!@$%^&*-]+)$/,
@@ -75,51 +130,79 @@ export class BotTelegramService implements OnModuleInit {
       },
     );
 
-    this._bot.onText(/^\/(script::)\w*$/, async (msg, match) => {
-      if (msg.from.is_bot) {
-        return;
-      }
-      const myTelegramId = getTelegramId(msg);
-      const workspaceId = msg.chat.id;
-      const scriptData = msg.text.substring(1);
-
-      try {
-        const player = await this.bitTradingService.updateScriptOfPlayer(
-          {
-            telegramId: myTelegramId,
-          },
-          scriptData,
-        );
-        if (player.script !== scriptData) {
-          throw 'ERROR!';
+    this._bot.onText(
+      /^\/(s|S)cript__(D|L)\s*([0-9]+)*__\w*$/,
+      async (msg, match) => {
+        if (msg.from.is_bot) {
+          return;
         }
-        this.botSendMessage(workspaceId, `SCRIPT UPDATED: ${player.script}`);
-      } catch (error) {
-        this.botSendMessage(workspaceId, `UPDATE SCRIPT FAIL`);
-      }
-    });
+        const myTelegramId = getTelegramId(msg);
+        const workspaceId = msg.chat.id;
+        const payload = msg.text.split(SEPARATOR_SCRIPT);
+        const [actionNm, accountNm, scriptData] = payload;
+        if (!accountNm.length) return;
 
-    this._bot.onText(/^\/(stop)*$/, async (msg, match) => {
+        try {
+          const player = await this.bitTradingService.updateScriptOfPlayer(
+            {
+              telegramId: myTelegramId,
+              accountName: accountNm,
+            },
+            scriptData,
+          );
+          if (player.script !== scriptData) {
+            throw 'ERROR!';
+          }
+          this.botSendMessage(
+            workspaceId,
+            UPDATE_SCRIPT_TEMPLATE_SUCCESS_TEMPLATE(accountNm, player.script),
+            {
+              parse_mode: 'HTML',
+            },
+          );
+        } catch (error) {
+          this.botSendMessage(workspaceId, `Cập nhập kịch bản thất bại`);
+        }
+      },
+    );
+
+    this._bot.onText(/^\/(s|S)top__(D|L)\s*([0-9]+)*$/, async (msg, match) => {
       const myTelegramId = getTelegramId(msg);
       const workspaceId = msg.chat.id;
+      const payload = msg.text.split(SEPARATOR_SCRIPT);
+      const [actionNm, accountNm] = payload;
+      if (!accountNm.length) return;
+
       try {
-        const data = await this.bitTradingService.updateAutoStatusOfPlayer(
+        const player = await this.bitTradingService.updateAutoStatusOfPlayer(
           {
             telegramId: myTelegramId,
+            accountName: accountNm,
           },
           false,
         );
-        this.botSendMessage(workspaceId, `is Stop: ${data.isAuto}`);
+        this.botSendMessage(
+          workspaceId,
+          STOP_AUTO_TRADE_SUCCESS_TEMPLATE(accountNm, player.isAuto),
+          {
+            parse_mode: 'HTML',
+          },
+        );
       } catch (error) {}
     });
 
-    this._bot.onText(/^\/(trade)*$/, async (msg, match) => {
+    this._bot.onText(/^\/(t|T)rade__(D|L)\s*([0-9]+)*$/, async (msg, match) => {
       const myTelegramId = getTelegramId(msg);
       const workspaceId = msg.chat.id;
+      const payload = msg.text.split(SEPARATOR_SCRIPT);
+      const [actionNm, accountNm] = payload;
+      if (!accountNm.length) return;
+
       try {
         const data = await this.bitTradingService.updateAutoStatusOfPlayer(
           {
             telegramId: myTelegramId,
+            accountName: accountNm,
           },
           true,
         );
