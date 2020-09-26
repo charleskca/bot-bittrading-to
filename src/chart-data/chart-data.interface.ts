@@ -26,17 +26,17 @@ export interface BitTradingData {
 export enum Trend {
   up = 'up',
   down = 'down',
-  bullish = 'bullish',
-  bearish = 'bearish',
+  bullish = 1,
+  bearish = 0,
   // 'up' | 'down' | 'bullish' | 'bearish'
 }
 
 export function up(trend: Trend) {
-  return trend === 'up' || trend === 'bullish';
+  return trend === 'up' || trend === 0;
 }
 
 export function down(trend: Trend) {
-  return trend === 'down' || trend === 'bearish';
+  return trend === 'down' || trend === 1;
 }
 
 export type ChartHooks = Record<

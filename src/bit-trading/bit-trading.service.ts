@@ -33,6 +33,7 @@ export class BitTradingService implements OnModuleInit {
   onModuleInit() {}
 
   _snapshot = [];
+  _orderedFlg = false;
 
   constructor(
     private readonly queueSevice: QueueService,
@@ -52,44 +53,45 @@ export class BitTradingService implements OnModuleInit {
   }
 
   async watchChartDataChanged(data: BitTradingDataDTO) {
-    let orderedFlg = false;
+    // console.log(data.history.map(e => e.type));
+    // console.log(data.serverTime.canOrder);
     if (data.serverTime.canOrder) {
       console.log(data.serverTime.second);
-      if (!orderedFlg && Number(data.serverTime.second) === 1) {
-        orderedFlg = true;
-        const playerRecords = (await this.redisService.getPlayerTrades()) || {};
-        const players: IPlayer[] = Object.values(playerRecords).map(player =>
-          JSON.parse(player),
-        );
-        players.forEach(player => {
-          if (!player.isAuto) {
-            return;
-          }
-          const isTokenExpired = isExpired(player.expiredDate);
-          if (isTokenExpired) {
-            console.log('isTokenExpired');
-            this.onLogin(0, player.accountName, player.password)
-              .then(() => {
-                console.log(`refresh token ${player.accountName} SUCCESS`);
-              })
-              .catch(() => {
-                console.log(`refresh token ${player.accountName} FAIL`);
-              });
-          } else {
-            // Order in here
-            this.onOrder(player.token, BET_TYPE.BUY, 1)
-              .catch(err => {
-                console.log('order', err);
-              })
-              .then(res => {
-                // console.log('order Success', res);
-              });
-          }
-        });
-        console.log(data.serverTime);
-      }
+      if (this._orderedFlg) return;
+      this._orderedFlg = true;
+      console.log('data.serverTime.second', data.serverTime.second);
+      const playerRecords = (await this.redisService.getPlayerTrades()) || {};
+      const players: IPlayer[] = Object.values(playerRecords).map(player =>
+        JSON.parse(player),
+      );
+      players.forEach(player => {
+        if (!player.isAuto) {
+          return;
+        }
+        const isTokenExpired = isExpired(player.expiredDate);
+        if (isTokenExpired) {
+          console.log('isTokenExpired');
+          this.onLogin(0, player.accountName, player.password)
+            .then(() => {
+              console.log(`refresh token ${player.accountName} SUCCESS`);
+            })
+            .catch(() => {
+              console.log(`refresh token ${player.accountName} FAIL`);
+            });
+        } else {
+          // Order in here
+          this.onOrder(player.token, BET_TYPE.BUY, 1)
+            .catch(err => {
+              console.log('order', err);
+            })
+            .then(res => {
+              // console.log('order Success', res);
+            });
+        }
+      });
+      console.log(data.serverTime);
     } else {
-      orderedFlg = false;
+      this._orderedFlg = false;
     }
   }
 
