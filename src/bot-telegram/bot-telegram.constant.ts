@@ -77,7 +77,7 @@ Kịch bản của tài khoản <b>${accountNm}</b> được cập nhập thành
 ===========
 `;
 
-export const STOP_AUTO_TRADE_SUCCESS_TEMPLATE = (accountName, isAuto) => `
+export const AUTO_TRADE_STATUS_TEMPLATE = (accountName, isAuto) => `
 tài khoản: <b>${accountName}</b>
 chế độ auto trade: <b>${AUTO_TRADE_LABEL(isAuto)}</b>
 `;
@@ -89,5 +89,12 @@ export const SUGGEST_TEMPLATE = accountName => `
 /profit_all__${accountName} - Báo cáo lợi nhuận mọi thời điểm.
 /stop__${accountName} - Dừng tự động đặt lệnh mà không có điều kiện.
 /trade__${accountName} - Tiếp tục lệnh đặt tự động và xóa tất cả các điều kiện dừng.
+/script__${accountName}__[đoạn kịch bản của bạn] thiết lập kịch bản của bạn vd: /script__D000001__2b
+`;
+
+export const ACCOUNT_DONT_HAVE_SCRIPT = accountName => `
+Tài khoản ${accountName} chưa setup (script) kịch bản
+Vui lòng setup script trước khi bật tính năng auto trade
+/show_script_default__${accountName}
 /script__${accountName}__[đoạn kịch bản của bạn] thiết lập kịch bản của bạn vd: /script__D000001__2b
 `;

@@ -2,12 +2,13 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import * as TelegramBot from 'node-telegram-bot-api';
 import { Cron } from '@nestjs/schedule';
 import {
+  ACCOUNT_DONT_HAVE_SCRIPT,
   HELP_TXT,
   INFO_TEMPLATE,
   MESSAGES,
   SCRIPT_HELP_TXT,
   SEPARATOR_SCRIPT,
-  STOP_AUTO_TRADE_SUCCESS_TEMPLATE,
+  AUTO_TRADE_STATUS_TEMPLATE,
   SUGGEST_TEMPLATE,
   UPDATE_SCRIPT_TEMPLATE_SUCCESS_TEMPLATE,
 } from './bot-telegram.constant';
@@ -61,9 +62,16 @@ export class BotTelegramService implements OnModuleInit {
             return INFO_TEMPLATE(player);
           })
           .join('');
-        this.botSendMessage(msg.chat.id, messages, {
-          parse_mode: 'HTML',
-        });
+        if (players.length) {
+          this.botSendMessage(msg.chat.id, messages, {
+            parse_mode: 'HTML',
+          });
+        } else {
+          this.botSendMessage(
+            msg.chat.id,
+            'Bạn chưa đăng nhập tài khoản nào!!',
+          );
+        }
       } catch (error) {}
     });
 
@@ -183,7 +191,7 @@ export class BotTelegramService implements OnModuleInit {
         );
         this.botSendMessage(
           workspaceId,
-          STOP_AUTO_TRADE_SUCCESS_TEMPLATE(accountNm, player.isAuto),
+          AUTO_TRADE_STATUS_TEMPLATE(accountNm, player.isAuto),
           {
             parse_mode: 'HTML',
           },
@@ -197,16 +205,28 @@ export class BotTelegramService implements OnModuleInit {
       const payload = msg.text.split(SEPARATOR_SCRIPT);
       const [actionNm, accountNm] = payload;
       if (!accountNm.length) return;
-
       try {
-        const data = await this.bitTradingService.updateAutoStatusOfPlayer(
+        const player = await this.bitTradingService.updateAutoStatusOfPlayer(
           {
             telegramId: myTelegramId,
             accountName: accountNm,
           },
           true,
         );
-        this.botSendMessage(workspaceId, `is Trade: ${data.isAuto}`);
+        if (!player.script) {
+          this.botSendMessage(
+            workspaceId,
+            ACCOUNT_DONT_HAVE_SCRIPT(player.accountName),
+          );
+        } else {
+          this.botSendMessage(
+            workspaceId,
+            AUTO_TRADE_STATUS_TEMPLATE(player.accountName, player.isAuto),
+            {
+              parse_mode: 'HTML',
+            },
+          );
+        }
       } catch (error) {}
     });
   }

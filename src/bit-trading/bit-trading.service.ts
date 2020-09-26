@@ -52,14 +52,11 @@ export class BitTradingService implements OnModuleInit {
   }
 
   async watchChartDataChanged(data: BitTradingDataDTO) {
-    // console.log(data.history.map(a => a.type));
-    // console.log(this.chartDataService.data);
-    // console.log(data.serverTime);
-    // console.log(data.data.slice(data.data.length - 8, data.data.length));
-    // console.log(JSON.stringify(data.history));
+    let orderedFlg = false;
     if (data.serverTime.canOrder) {
       console.log(data.serverTime.second);
-      if (Number(data.serverTime.second) === 1) {
+      if (!orderedFlg && Number(data.serverTime.second) === 1) {
+        orderedFlg = true;
         const playerRecords = (await this.redisService.getPlayerTrades()) || {};
         const players: IPlayer[] = Object.values(playerRecords).map(player =>
           JSON.parse(player),
@@ -70,6 +67,7 @@ export class BitTradingService implements OnModuleInit {
           }
           const isTokenExpired = isExpired(player.expiredDate);
           if (isTokenExpired) {
+            console.log('isTokenExpired');
             this.onLogin(0, player.accountName, player.password)
               .then(() => {
                 console.log(`refresh token ${player.accountName} SUCCESS`);
@@ -79,13 +77,19 @@ export class BitTradingService implements OnModuleInit {
               });
           } else {
             // Order in here
-            this.onOrder(player.token, BET_TYPE.BUY, 1).catch(err => {
-              console.log('order', err);
-            });
+            this.onOrder(player.token, BET_TYPE.BUY, 1)
+              .catch(err => {
+                console.log('order', err);
+              })
+              .then(res => {
+                // console.log('order Success', res);
+              });
           }
         });
         console.log(data.serverTime);
       }
+    } else {
+      orderedFlg = false;
     }
   }
 
@@ -121,9 +125,9 @@ export class BitTradingService implements OnModuleInit {
     } else {
       player.expiredDate = createPlayerDto.expiredDate;
       player.token = createPlayerDto.token;
-      if (player.password !== createPlayerDto.password) {
-        player.password = createPlayerDto.token;
-      }
+      // if (player.password !== createPlayerDto.password) {
+      //   player.password = createPlayerDto.token;
+      // }
       player.save();
     }
     this.queueSevice.asyncPlayerToRedisCache();
@@ -137,7 +141,7 @@ export class BitTradingService implements OnModuleInit {
     let player = await this.playerModel.findOne(filter);
     if (player && autoStatus !== player.isAuto && !!player.script) {
       player.isAuto = autoStatus;
-      player.save();
+      await player.save();
       this.queueSevice.asyncPlayerToRedisCache();
     }
     return player;
