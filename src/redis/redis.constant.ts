@@ -1,1 +1,2 @@
 export const PLAYER_TRADES = 'PLAYER_TRADES';
+export const PLAYER_COUNT_LOSE = 'PLAYER_COUNT_LOSE';

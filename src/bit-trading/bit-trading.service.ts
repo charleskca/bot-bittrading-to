@@ -53,10 +53,9 @@ export class BitTradingService implements OnModuleInit {
   }
 
   async watchChartDataChanged(data: BitTradingDataDTO) {
-    // console.log(data.history.map(e => e.type));
+    console.log(data.history.map(e => e.type));
     // console.log(data.serverTime.canOrder);
     if (data.serverTime.canOrder) {
-      console.log(data.serverTime.second);
       if (this._orderedFlg) return;
       this._orderedFlg = true;
       console.log('data.serverTime.second', data.serverTime.second);
