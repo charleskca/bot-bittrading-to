@@ -5,7 +5,7 @@ import {
   Inject,
   OnModuleInit,
 } from '@nestjs/common';
-import { catchError, map } from 'rxjs/operators';
+import { catchError, map, retry } from 'rxjs/operators';
 import { throwError } from 'rxjs';
 import { Cache } from 'cache-manager';
 import * as redis from 'redis';
@@ -26,7 +26,7 @@ import { IPlayer, PlayerParamsFilter } from './bit-trading.interface';
 import { QueueService } from 'src/queue/queue.service';
 import { promisify } from 'util';
 import { RedisService } from 'src/redis/redis.service';
-import { isExpired } from './bit-trading.util';
+import { isExpired, scriptUtils } from './bit-trading.util';
 
 @Injectable()
 export class BitTradingService implements OnModuleInit {
@@ -34,6 +34,7 @@ export class BitTradingService implements OnModuleInit {
 
   _snapshot = [];
   _orderedFlg = false;
+  _lastOrder = {};
 
   constructor(
     private readonly queueSevice: QueueService,
@@ -53,10 +54,11 @@ export class BitTradingService implements OnModuleInit {
   }
 
   async watchChartDataChanged(data: BitTradingDataDTO) {
-    console.log(data.history.map(e => e.type));
+    // console.log(data.history.map(e => e.type));
     // console.log(data.serverTime.canOrder);
     if (data.serverTime.canOrder) {
-      if (this._orderedFlg) return;
+      if (this._orderedFlg || Number(data.serverTime.second) > 25) return;
+      //
       this._orderedFlg = true;
       console.log('data.serverTime.second', data.serverTime.second);
       const playerRecords = (await this.redisService.getPlayerTrades()) || {};
@@ -78,8 +80,27 @@ export class BitTradingService implements OnModuleInit {
               console.log(`refresh token ${player.accountName} FAIL`);
             });
         } else {
-          // Order in here
-          this.onOrder(player.token, BET_TYPE.BUY, 1)
+          // Order in here/
+          // Parse script
+          const script = player.script;
+          const [conditionScript, orderScript] = script.split('_');
+          const conditionScriptParsed = scriptUtils.parse(conditionScript);
+          console.log('conditionScriptParsed', conditionScriptParsed);
+          console.log(data.history.map(e => e.type));
+          const isCorrectScript = scriptUtils.isCorrectScript(
+            data.history.map(e => e.type),
+            conditionScriptParsed,
+          );
+          console.log('isCorrectScript', isCorrectScript);
+          const [betType, amount] = scriptUtils.getAmountAndType(orderScript);
+          if (!isCorrectScript) return;
+          this._lastOrder[player.accountName] =
+            betType === 'b' ? BET_TYPE.BUY : BET_TYPE.SELL;
+          this.onOrder(
+            player.token,
+            betType === 'b' ? BET_TYPE.BUY : BET_TYPE.SELL,
+            Number(amount),
+          )
             .catch(err => {
               console.log('order', err);
             })
