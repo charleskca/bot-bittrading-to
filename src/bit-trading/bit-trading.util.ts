@@ -38,3 +38,8 @@ export const scriptUtils = {
     return script.match(/\d+|\w/g);
   },
 };
+
+export const defaultUserHistory = () => ({
+  orders: [],
+  countLost: 0,
+});

@@ -1,19 +1,22 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import * as TelegramBot from 'node-telegram-bot-api';
-import { Cron } from '@nestjs/schedule';
+// import { Cron } from '@nestjs/schedule';
+
 import {
   ACCOUNT_DONT_HAVE_SCRIPT,
   HELP_TXT,
   INFO_TEMPLATE,
   MESSAGES,
   SCRIPT_HELP_TXT,
-  SEPARATOR_SCRIPT,
   AUTO_TRADE_STATUS_TEMPLATE,
   SUGGEST_TEMPLATE,
   UPDATE_SCRIPT_TEMPLATE_SUCCESS_TEMPLATE,
-} from './bot-telegram.constant';
+  PROFIT_TODAY_SUCCESS_TEMPLATE,
+  BOT_ERROR_MESSAGE_TEMPLATE,
+} from './bot-telegram.message';
 import { BitTradingService } from 'src/bit-trading/bit-trading.service';
 import { getTelegramId } from './bot-telegram.util';
+import { SEPARATOR_SCRIPT } from './bot-telegram.constant';
 
 @Injectable()
 export class BotTelegramService implements OnModuleInit {
@@ -33,6 +36,7 @@ export class BotTelegramService implements OnModuleInit {
   }
 
   private _bindObservers() {
+    // start
     this._bot.onText(/^\/help|start$/, (msg, match) => {
       if (msg.from.is_bot) {
         return;
@@ -43,6 +47,7 @@ export class BotTelegramService implements OnModuleInit {
       });
     });
 
+    // Login
     this._bot.onText(/^\/(l|L)ogin$/, async (msg, match) => {
       this.botSendMessage(
         msg.chat.id,
@@ -50,6 +55,7 @@ export class BotTelegramService implements OnModuleInit {
       );
     });
 
+    // Info
     this._bot.onText(/^\/(i|I)nfo$/, async (msg, match) => {
       const myTelegramId = getTelegramId(msg);
       try {
@@ -75,6 +81,7 @@ export class BotTelegramService implements OnModuleInit {
       } catch (error) {}
     });
 
+    // Show script default
     this._bot.onText(
       /^\/(s|S)how_script_default__(D|L)\s*([0-9]+)*$/,
       async (msg, match) => {
@@ -89,6 +96,7 @@ export class BotTelegramService implements OnModuleInit {
       },
     );
 
+    // Suggest
     this._bot.onText(
       /^\/(s|S)uggest__(D|L)\s*([0-9]+)*$/,
       async (msg, match) => {
@@ -103,6 +111,7 @@ export class BotTelegramService implements OnModuleInit {
       },
     );
 
+    // D...
     this._bot.onText(
       /^\/(D|L)\s*([0-9]+)*&([a-zA-Z0-9#?!@$%^&*-]+)$/,
       async (msg, match) => {
@@ -138,6 +147,7 @@ export class BotTelegramService implements OnModuleInit {
       },
     );
 
+    // Update script
     this._bot.onText(
       /^\/(s|S)cript__(D|L)\s*([0-9]+)*__\w*$/,
       async (msg, match) => {
@@ -174,6 +184,7 @@ export class BotTelegramService implements OnModuleInit {
       },
     );
 
+    // Stop trade
     this._bot.onText(/^\/(s|S)top__(D|L)\s*([0-9]+)*$/, async (msg, match) => {
       const myTelegramId = getTelegramId(msg);
       const workspaceId = msg.chat.id;
@@ -196,9 +207,12 @@ export class BotTelegramService implements OnModuleInit {
             parse_mode: 'HTML',
           },
         );
-      } catch (error) {}
+      } catch (error) {
+        this.botSendMessage(workspaceId, BOT_ERROR_MESSAGE_TEMPLATE);
+      }
     });
 
+    // Turn on trade
     this._bot.onText(/^\/(t|T)rade__(D|L)\s*([0-9]+)*$/, async (msg, match) => {
       const myTelegramId = getTelegramId(msg);
       const workspaceId = msg.chat.id;
@@ -227,8 +241,39 @@ export class BotTelegramService implements OnModuleInit {
             },
           );
         }
-      } catch (error) {}
+      } catch (error) {
+        this.botSendMessage(workspaceId, BOT_ERROR_MESSAGE_TEMPLATE);
+      }
     });
+
+    // profit today
+    this._bot.onText(
+      /^\/(p|P)rofit_day__(D|L)\s*([0-9]+)*$/,
+      async (msg, match) => {
+        const myTelegramId = getTelegramId(msg);
+        const workspaceId = msg.chat.id;
+        const payload = msg.text.split(SEPARATOR_SCRIPT);
+        const [actionNm, accountNm] = payload;
+        if (!accountNm.length) return;
+        this.bitTradingService
+          .onGetHistoryToday({
+            telegramId: myTelegramId,
+            accountName: accountNm,
+          })
+          .then(data => {
+            this.botSendMessage(
+              workspaceId,
+              PROFIT_TODAY_SUCCESS_TEMPLATE(accountNm, data),
+              {
+                parse_mode: 'HTML',
+              },
+            );
+          })
+          .catch(err => {
+            this.botSendMessage(workspaceId, BOT_ERROR_MESSAGE_TEMPLATE);
+          });
+      },
+    );
   }
 
   get bot() {

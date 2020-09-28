@@ -1,22 +1,11 @@
-import {
-  Injectable,
-  HttpService,
-  CACHE_MANAGER,
-  Inject,
-  OnModuleInit,
-} from '@nestjs/common';
-import { catchError, map, retry } from 'rxjs/operators';
+import { Injectable, HttpService, OnModuleInit } from '@nestjs/common';
+import { catchError, map } from 'rxjs/operators';
 import { throwError } from 'rxjs';
-import { Cache } from 'cache-manager';
-import * as redis from 'redis';
+import * as moment from 'moment';
 
 import { ChartDataService } from 'src/chart-data/chart-data.service';
 import { CHART_DATA_HOOKS } from 'src/chart-data/chart-data.constant';
-import {
-  BET_TYPE,
-  BIT_TRADING_API,
-  PLAYER_TRADES,
-} from './bit-trading.constant';
+import { BET_TYPE, BIT_TRADING_API } from './bit-trading.constant';
 import { BitTradingDataDTO } from 'src/chart-data/dto/chart-data.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Player } from './bit-trading.schema';
@@ -24,9 +13,8 @@ import { Model } from 'mongoose';
 import { CreatePlayerDto } from './dto/create-player.dto';
 import { IPlayer, PlayerParamsFilter } from './bit-trading.interface';
 import { QueueService } from 'src/queue/queue.service';
-import { promisify } from 'util';
 import { RedisService } from 'src/redis/redis.service';
-import { isExpired, scriptUtils } from './bit-trading.util';
+import { defaultUserHistory, isExpired, scriptUtils } from './bit-trading.util';
 
 @Injectable()
 export class BitTradingService implements OnModuleInit {
@@ -80,13 +68,16 @@ export class BitTradingService implements OnModuleInit {
               console.log(`refresh token ${player.accountName} FAIL`);
             });
         } else {
-          // Order in here/
-          // Parse script
+          // Order in here
+          this._lastOrder[player.accountName] = this._lastOrder[
+            player.accountName
+          ]
+            ? this._lastOrder[player.accountName]
+            : defaultUserHistory();
           const script = player.script;
           const [conditionScript, orderScript] = script.split('_');
           const conditionScriptParsed = scriptUtils.parse(conditionScript);
           console.log('conditionScriptParsed', conditionScriptParsed);
-          console.log(data.history.map(e => e.type));
           const isCorrectScript = scriptUtils.isCorrectScript(
             data.history.map(e => e.type),
             conditionScriptParsed,
@@ -195,7 +186,7 @@ export class BitTradingService implements OnModuleInit {
             token: response.data.data.token,
           };
           this.findOrCreatePlayer(player);
-          return response;
+          return response.data;
         }),
         catchError(error => {
           return throwError(error.response);
@@ -237,11 +228,89 @@ export class BitTradingService implements OnModuleInit {
     });
   }
 
-  onGetOrderHistory(token: string) {
-    return this.httpService.get(BIT_TRADING_API.getOrderHistory, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+  onGetOrderHistory(
+    token: string,
+    to,
+    from: Date | string = '2020-01-01',
+    pageIndex = 1,
+    pagesize = 999,
+  ) {
+    let qr = {
+      PageIndex: pageIndex,
+      FromDate: from,
+      ToDate: to,
+      Pagesize: pagesize,
+    };
+    return this.httpService
+      .get(BIT_TRADING_API.getOrderHistory, {
+        data: {
+          ...qr,
+        },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      .pipe(
+        map(response => {
+          return {
+            ...response.data,
+            FromDate: from,
+            ToDate: to,
+          };
+        }),
+        catchError(error => {
+          return throwError(error.response);
+        }),
+      )
+      .toPromise();
+  }
+
+  async onGetHistoryToday(
+    filter: PlayerParamsFilter,
+    pageIndex = 1,
+    pagesize = 999,
+  ) {
+    let player = await this.playerModel.findOne(filter);
+    if (!player) return false;
+    const isTokenExpired = isExpired(player.expiredDate);
+    if (isTokenExpired) {
+      const userLogin = await this.onLogin(
+        player.telegramId,
+        player.accountName,
+        player.password,
+      );
+      player.token = userLogin.data.token;
+    }
+
+    const to = moment()
+      .utc()
+      .toDate();
+    let from = moment()
+      .utc()
+      .startOf('date')
+      .toDate();
+    return this.onGetOrderHistory(player.token, to, from, pageIndex, pagesize);
+  }
+
+  onGetHistoryWeek(token: string, pageIndex = 1, pagesize = 999) {
+    const to = moment()
+      .utc()
+      .toDate();
+    let from = moment()
+      .utc()
+      .startOf('week')
+      .toDate();
+    return this.onGetOrderHistory(token, to, from, pageIndex, pagesize);
+  }
+
+  onGetHistoryMonth(token: string, pageIndex = 1, pagesize = 999) {
+    const to = moment()
+      .utc()
+      .toDate();
+    let from = moment()
+      .utc()
+      .startOf('month')
+      .toDate();
+    return this.onGetOrderHistory(token, to, from, pageIndex, pagesize);
   }
 }
