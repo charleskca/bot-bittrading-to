@@ -72,7 +72,7 @@ export class BitTradingService implements OnModuleInit {
         const isTokenExpired = isExpired(player.expiredDate);
         if (isTokenExpired) {
           console.log('isTokenExpired');
-          this.onLogin(0, player.accountName, player.password)
+          this.onLogin(player.telegramId, player.accountName, player.password)
             .then(() => {
               console.log(`refresh token ${player.accountName} SUCCESS`);
             })
