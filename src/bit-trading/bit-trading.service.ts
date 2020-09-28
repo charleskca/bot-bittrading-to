@@ -265,13 +265,8 @@ export class BitTradingService implements OnModuleInit {
       .toPromise();
   }
 
-  async onGetHistoryToday(
-    filter: PlayerParamsFilter,
-    pageIndex = 1,
-    pagesize = 999,
-  ) {
+  async findOrRefreshToken(filter: PlayerParamsFilter) {
     let player = await this.playerModel.findOne(filter);
-    if (!player) return false;
     const isTokenExpired = isExpired(player.expiredDate);
     if (isTokenExpired) {
       const userLogin = await this.onLogin(
@@ -280,6 +275,19 @@ export class BitTradingService implements OnModuleInit {
         player.password,
       );
       player.token = userLogin.data.token;
+      player.expiredDate = userLogin.data.expiredDate;
+    }
+    return player;
+  }
+
+  async onGetHistoryToday(
+    filter: PlayerParamsFilter,
+    pageIndex = 1,
+    pagesize = 999,
+  ) {
+    let player = await this.findOrRefreshToken(filter);
+    if (!player) {
+      throw 'not found user';
     }
 
     const to = moment()
@@ -292,7 +300,16 @@ export class BitTradingService implements OnModuleInit {
     return this.onGetOrderHistory(player.token, to, from, pageIndex, pagesize);
   }
 
-  onGetHistoryWeek(token: string, pageIndex = 1, pagesize = 999) {
+  async onGetHistoryWeek(
+    filter: PlayerParamsFilter,
+    pageIndex = 1,
+    pagesize = 999,
+  ) {
+    let player = await this.findOrRefreshToken(filter);
+    if (!player) {
+      throw 'not found user';
+    }
+
     const to = moment()
       .utc()
       .toDate();
@@ -300,10 +317,19 @@ export class BitTradingService implements OnModuleInit {
       .utc()
       .startOf('week')
       .toDate();
-    return this.onGetOrderHistory(token, to, from, pageIndex, pagesize);
+    return this.onGetOrderHistory(player.token, to, from, pageIndex, pagesize);
   }
 
-  onGetHistoryMonth(token: string, pageIndex = 1, pagesize = 999) {
+  async onGetHistoryMonth(
+    filter: PlayerParamsFilter,
+    pageIndex = 1,
+    pagesize = 999,
+  ) {
+    let player = await this.findOrRefreshToken(filter);
+    if (!player) {
+      throw 'not found user';
+    }
+
     const to = moment()
       .utc()
       .toDate();
@@ -311,6 +337,6 @@ export class BitTradingService implements OnModuleInit {
       .utc()
       .startOf('month')
       .toDate();
-    return this.onGetOrderHistory(token, to, from, pageIndex, pagesize);
+    return this.onGetOrderHistory(player.token, to, from, pageIndex, pagesize);
   }
 }

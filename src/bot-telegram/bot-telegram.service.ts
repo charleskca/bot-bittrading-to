@@ -13,6 +13,7 @@ import {
   UPDATE_SCRIPT_TEMPLATE_SUCCESS_TEMPLATE,
   PROFIT_TODAY_SUCCESS_TEMPLATE,
   BOT_ERROR_MESSAGE_TEMPLATE,
+  PROFIT_MONTH_SUCCESS_TEMPLATE,
 } from './bot-telegram.message';
 import { BitTradingService } from 'src/bit-trading/bit-trading.service';
 import { getTelegramId } from './bot-telegram.util';
@@ -264,6 +265,64 @@ export class BotTelegramService implements OnModuleInit {
             this.botSendMessage(
               workspaceId,
               PROFIT_TODAY_SUCCESS_TEMPLATE(accountNm, data),
+              {
+                parse_mode: 'HTML',
+              },
+            );
+          })
+          .catch(err => {
+            this.botSendMessage(workspaceId, BOT_ERROR_MESSAGE_TEMPLATE);
+          });
+      },
+    );
+
+    // profit week
+    this._bot.onText(
+      /^\/(p|P)rofit_week__(D|L)\s*([0-9]+)*$/,
+      async (msg, match) => {
+        const myTelegramId = getTelegramId(msg);
+        const workspaceId = msg.chat.id;
+        const payload = msg.text.split(SEPARATOR_SCRIPT);
+        const [actionNm, accountNm] = payload;
+        if (!accountNm.length) return;
+        this.bitTradingService
+          .onGetHistoryWeek({
+            telegramId: myTelegramId,
+            accountName: accountNm,
+          })
+          .then(data => {
+            this.botSendMessage(
+              workspaceId,
+              PROFIT_MONTH_SUCCESS_TEMPLATE(accountNm, data),
+              {
+                parse_mode: 'HTML',
+              },
+            );
+          })
+          .catch(err => {
+            this.botSendMessage(workspaceId, BOT_ERROR_MESSAGE_TEMPLATE);
+          });
+      },
+    );
+
+    // profit month
+    this._bot.onText(
+      /^\/(p|P)rofit_month__(D|L)\s*([0-9]+)*$/,
+      async (msg, match) => {
+        const myTelegramId = getTelegramId(msg);
+        const workspaceId = msg.chat.id;
+        const payload = msg.text.split(SEPARATOR_SCRIPT);
+        const [actionNm, accountNm] = payload;
+        if (!accountNm.length) return;
+        this.bitTradingService
+          .onGetHistoryMonth({
+            telegramId: myTelegramId,
+            accountName: accountNm,
+          })
+          .then(data => {
+            this.botSendMessage(
+              workspaceId,
+              PROFIT_MONTH_SUCCESS_TEMPLATE(accountNm, data),
               {
                 parse_mode: 'HTML',
               },
