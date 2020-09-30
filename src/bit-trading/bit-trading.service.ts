@@ -14,7 +14,8 @@ import { CreatePlayerDto } from './dto/create-player.dto';
 import { IPlayer, PlayerParamsFilter } from './bit-trading.interface';
 import { QueueService } from 'src/queue/queue.service';
 import { RedisService } from 'src/redis/redis.service';
-import { defaultUserHistory, isExpired, scriptUtils } from './bit-trading.util';
+import { isExpired, scriptUtils } from './bit-trading.util';
+import { AutoTrade, defaultUserHistory, IUserHistory } from './AutoTrade';
 
 @Injectable()
 export class BitTradingService implements OnModuleInit {
@@ -22,7 +23,7 @@ export class BitTradingService implements OnModuleInit {
 
   _snapshot = [];
   _orderedFlg = false;
-  _lastOrder = {};
+  _lastOrder: Record<string, IUserHistory> = {};
 
   constructor(
     private readonly queueSevice: QueueService,
@@ -35,13 +36,13 @@ export class BitTradingService implements OnModuleInit {
   }
 
   private _bindObservers() {
-    this.chartDataService.addHook(
-      CHART_DATA_HOOKS.afterChartDataChanged,
-      data => this.watchChartDataChanged(data),
-    );
+    this.chartDataService.addHook(CHART_DATA_HOOKS.afterChartDataChanged, data => this.watchChartDataChanged(data));
   }
 
   async watchChartDataChanged(data: BitTradingDataDTO) {
+    // Version của bitrading remove history property, de fix lai sau
+    if (!data.history) return;
+    // console.log("data.history", data)
     // console.log(data.history.map(e => e.type));
     // console.log(data.serverTime.canOrder);
     if (data.serverTime.canOrder) {
@@ -50,9 +51,8 @@ export class BitTradingService implements OnModuleInit {
       this._orderedFlg = true;
       console.log('data.serverTime.second', data.serverTime.second);
       const playerRecords = (await this.redisService.getPlayerTrades()) || {};
-      const players: IPlayer[] = Object.values(playerRecords).map(player =>
-        JSON.parse(player),
-      );
+      const historyData = data.history.map(e => e.type);
+      const players: IPlayer[] = Object.values(playerRecords).map(player => JSON.parse(player));
       players.forEach(player => {
         if (!player.isAuto) {
           return;
@@ -69,29 +69,31 @@ export class BitTradingService implements OnModuleInit {
             });
         } else {
           // Order in here
-          this._lastOrder[player.accountName] = this._lastOrder[
-            player.accountName
-          ]
-            ? this._lastOrder[player.accountName]
-            : defaultUserHistory();
-          const script = player.script;
-          const [conditionScript, orderScript] = script.split('_');
-          const conditionScriptParsed = scriptUtils.parse(conditionScript);
-          console.log('conditionScriptParsed', conditionScriptParsed);
-          const isCorrectScript = scriptUtils.isCorrectScript(
-            data.history.map(e => e.type),
-            conditionScriptParsed,
-          );
-          console.log('isCorrectScript', isCorrectScript);
-          const [betType, amount] = scriptUtils.getAmountAndType(orderScript);
-          if (!isCorrectScript) return;
-          this._lastOrder[player.accountName] =
-            betType === 'b' ? BET_TYPE.BUY : BET_TYPE.SELL;
-          this.onOrder(
-            player.token,
-            betType === 'b' ? BET_TYPE.BUY : BET_TYPE.SELL,
-            Number(amount),
-          )
+          const lastBetTypeOfCandle = historyData[historyData.length - 1];
+          if (this._lastOrder[player.accountName]) {
+            this._lastOrder[player.accountName] = {
+              ...this._lastOrder[player.accountName],
+              point:
+                this._lastOrder[player.accountName].lastOrderType === -1
+                  ? 0
+                  : this._lastOrder[player.accountName].lastOrderType === lastBetTypeOfCandle
+                  ? this._lastOrder[player.accountName].point + 1
+                  : this._lastOrder[player.accountName].point - 1,
+            };
+          } else {
+            this._lastOrder[player.accountName] = defaultUserHistory();
+          }
+          const userHistory = this._lastOrder[player.accountName];
+          const playerAutoTrade = new AutoTrade(player.script, userHistory, historyData);
+
+          this._lastOrder[player.accountName] = playerAutoTrade.betType;
+          if (!playerAutoTrade.isSignalCorrect) return;
+          this._lastOrder[player.accountName] = {
+            ...this._lastOrder[player.accountName],
+            lastOrderType: playerAutoTrade.betType,
+          };
+          console.log('playerAutoTrade', playerAutoTrade.betType, playerAutoTrade.amount);
+          this.onOrder(player.token, playerAutoTrade.betType, playerAutoTrade.amount)
             .catch(err => {
               console.log('order', err);
             })
@@ -147,10 +149,7 @@ export class BitTradingService implements OnModuleInit {
     return player;
   }
 
-  async updateAutoStatusOfPlayer(
-    filter: PlayerParamsFilter,
-    autoStatus: boolean,
-  ) {
+  async updateAutoStatusOfPlayer(filter: PlayerParamsFilter, autoStatus: boolean) {
     let player = await this.playerModel.findOne(filter);
     if (player && autoStatus !== player.isAuto && !!player.script) {
       player.isAuto = autoStatus;
@@ -228,13 +227,7 @@ export class BitTradingService implements OnModuleInit {
     });
   }
 
-  onGetOrderHistory(
-    token: string,
-    to,
-    from: Date | string = '2020-01-01',
-    pageIndex = 1,
-    pagesize = 999,
-  ) {
+  onGetOrderHistory(token: string, to, from: Date | string = '2020-01-01', pageIndex = 1, pagesize = 999) {
     let qr = {
       PageIndex: pageIndex,
       FromDate: from,
@@ -269,22 +262,14 @@ export class BitTradingService implements OnModuleInit {
     let player = await this.playerModel.findOne(filter);
     const isTokenExpired = isExpired(player.expiredDate);
     if (isTokenExpired) {
-      const userLogin = await this.onLogin(
-        player.telegramId,
-        player.accountName,
-        player.password,
-      );
+      const userLogin = await this.onLogin(player.telegramId, player.accountName, player.password);
       player.token = userLogin.data.token;
       player.expiredDate = userLogin.data.expiredDate;
     }
     return player;
   }
 
-  async onGetHistoryToday(
-    filter: PlayerParamsFilter,
-    pageIndex = 1,
-    pagesize = 999,
-  ) {
+  async onGetHistoryToday(filter: PlayerParamsFilter, pageIndex = 1, pagesize = 999) {
     let player = await this.findOrRefreshToken(filter);
     if (!player) {
       throw 'not found user';
@@ -300,11 +285,7 @@ export class BitTradingService implements OnModuleInit {
     return this.onGetOrderHistory(player.token, to, from, pageIndex, pagesize);
   }
 
-  async onGetHistoryWeek(
-    filter: PlayerParamsFilter,
-    pageIndex = 1,
-    pagesize = 999,
-  ) {
+  async onGetHistoryWeek(filter: PlayerParamsFilter, pageIndex = 1, pagesize = 999) {
     let player = await this.findOrRefreshToken(filter);
     if (!player) {
       throw 'not found user';
@@ -320,11 +301,7 @@ export class BitTradingService implements OnModuleInit {
     return this.onGetOrderHistory(player.token, to, from, pageIndex, pagesize);
   }
 
-  async onGetHistoryMonth(
-    filter: PlayerParamsFilter,
-    pageIndex = 1,
-    pagesize = 999,
-  ) {
+  async onGetHistoryMonth(filter: PlayerParamsFilter, pageIndex = 1, pagesize = 999) {
     let player = await this.findOrRefreshToken(filter);
     if (!player) {
       throw 'not found user';

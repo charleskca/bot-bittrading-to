@@ -40,6 +40,7 @@ export const scriptUtils = {
 };
 
 export const defaultUserHistory = () => ({
-  orders: [],
-  countLost: 0,
+  orders: [], // history orders
+  point: 0, // 2 trận win liên tục
+  lastOrderType: -1, // lần order cuối cùng, mặc định mới vô chưa đặt là -1, còn buy 1, sell 0
 });

@@ -2,11 +2,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import * as io from 'socket.io-client';
 import { Type, plainToClass } from 'class-transformer';
 
-import {
-  CHART_EVENT,
-  defaultHooks,
-  CHART_DATA_HOOKS,
-} from './chart-data.constant';
+import { CHART_EVENT, defaultHooks, CHART_DATA_HOOKS } from './chart-data.constant';
 import { BitTradingData, ChartHooks } from './chart-data.interface';
 import { CandleStickDTO, BitTradingDataDTO } from './dto/chart-data.dto';
 
@@ -34,17 +30,15 @@ export class ChartDataService implements OnModuleInit {
   }
 
   private _bindObservers() {
-    this._socket.addEventListener(
-      CHART_EVENT.chartData,
-      (data: BitTradingData) => {
-        const bitTradingData = plainToClass(BitTradingDataDTO, data);
-        this._data = bitTradingData;
-        // call Hooks
-        this._hooks[CHART_DATA_HOOKS.afterChartDataChanged].forEach(hook => {
-          hook(bitTradingData);
-        });
-      },
-    );
+    this._socket.addEventListener(CHART_EVENT.chartData, (data: BitTradingData) => {
+      console.log('data', data);
+      const bitTradingData = plainToClass(BitTradingDataDTO, data);
+      this._data = bitTradingData;
+      // call Hooks
+      this._hooks[CHART_DATA_HOOKS.afterChartDataChanged].forEach(hook => {
+        hook(bitTradingData);
+      });
+    });
   }
 
   get socket() {
