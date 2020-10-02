@@ -51,11 +51,7 @@ export class AutoTrade {
   private _orderScript!: string;
   private _hooks: IHooks = defaultHooks();
 
-  constructor(
-    public script: string,
-    public userHistory: IUserHistory,
-    public historyData: number[] = [],
-  ) {
+  constructor(public script: string, public userHistory: IUserHistory, public historyData: number[] = []) {
     this._init();
   }
 
@@ -79,13 +75,7 @@ export class AutoTrade {
     let result = scriptMatch.reduce((acc, cur, index, originArr) => {
       let _cur = Number(cur);
       if (!(index % 2)) {
-        acc = [
-          ...acc,
-          ...AutoTrade.coverSizeToBetTypeArray(
-            _cur,
-            originArr[index + 1] as keyof typeof BET_TYPE,
-          ),
-        ];
+        acc = [...acc, ...AutoTrade.coverSizeToBetTypeArray(_cur, originArr[index + 1] as keyof typeof BET_TYPE)];
       }
       return acc;
     }, [] as number[]);
@@ -129,9 +119,7 @@ export class AutoTrade {
   }
 
   get isSignalCorrect() {
-    const _history = this.historyData.slice(
-      this.historyData.length - this.signal.length,
-    );
+    const _history = this.historyData.slice(this.historyData.length - this.signal.length);
     return _history.join('') === this.signal.join('');
   }
 
@@ -151,14 +139,15 @@ export class AutoTrade {
     let result: (string | number)[] = [];
     const orderGroupsParse = this.orderGroupsParse;
     if (this.orderScriptType === PLAY_TYPE.normal.val) {
+      let capitalManagement = this.capitalManagement;
       if (this.capitalManagement >= orderGroupsParse.length) {
         // Reset capital management
-        this.userHistory.point = 0;
-        this._hooks[HOOK_TYPES.userHistoryChanged].forEach(hook => {
-          hook(this.userHistory);
-        });
+        capitalManagement = 0;
+        // this._hooks[HOOK_TYPES.userHistoryChanged].forEach(hook => {
+        //   hook(this.userHistory);
+        // });
       }
-      const scriptOrdered = orderGroupsParse[this.capitalManagement];
+      const scriptOrdered = orderGroupsParse[capitalManagement];
       result = this._parseAmountAndType(scriptOrdered);
     } else if (this.orderScriptType === PLAY_TYPE.multiplyLose.val) {
       if (orderGroupsParse.length !== 2) throw 'Script format wrong!!';
@@ -166,27 +155,19 @@ export class AutoTrade {
       const [scriptOrdered, scriptCaptialManagement] = orderGroupsParse;
       result = this._parseAmountAndType(scriptOrdered);
       if (this.isLastLost) {
-        const [numberOfCaptialManagement] = scriptCaptialManagement.match(
-          /\d+/g,
-        ) || [1];
+        const [numberOfCaptialManagement] = scriptCaptialManagement.match(/\d+/g) || [1];
         const capitalManagement = this.capitalManagement;
         // Quản lí vốn khi thua, thua nhân lên
-        result[1] =
-          Number(result[1]) *
-          Math.pow(Number(numberOfCaptialManagement), capitalManagement);
+        result[1] = Number(result[1]) * Math.pow(Number(numberOfCaptialManagement), capitalManagement);
       }
     } else if (this.orderScriptType === PLAY_TYPE.multiplyWin.val) {
       const [scriptOrdered, scriptCaptialManagement] = orderGroupsParse;
       result = this._parseAmountAndType(scriptOrdered);
       if (this.isLastWon) {
-        const [numberOfCaptialManagement] = scriptCaptialManagement.match(
-          /\d+/g,
-        ) || [1];
+        const [numberOfCaptialManagement] = scriptCaptialManagement.match(/\d+/g) || [1];
         const capitalManagement = this.capitalManagement;
         // Quản lí vốn khi win, win nhân lên
-        result[1] =
-          Number(result[1]) *
-          Math.pow(Number(numberOfCaptialManagement), capitalManagement);
+        result[1] = Number(result[1]) * Math.pow(Number(numberOfCaptialManagement), capitalManagement);
       }
     } else if (this.orderScriptType === PLAY_TYPE.theSameColor.val) {
       const scriptOrdered = orderGroupsParse[0]; // hardcode
@@ -202,7 +183,7 @@ export class AutoTrade {
   }
 
   get betType() {
-    return BET_TYPE[this._amountAndBetType[0]];
+    return BET_TYPE[this._amountAndBetType[0] as keyof typeof BET_TYPE] as number;
   }
 
   addHook(key: keyof typeof HOOK_TYPES, hook: (payload: any) => void) {
@@ -233,14 +214,7 @@ const autoTrade = new AutoTrade('3x_x20', userHistory, historyData);
 
 console.log('autoTrade', autoTrade);
 
-console.log(
-  'isSignalCorrect: ',
-  autoTrade.isSignalCorrect,
-  ' || amount',
-  autoTrade.amount,
-  '  || betType: ',
-  autoTrade.betType,
-);
+console.log('isSignalCorrect: ', autoTrade.isSignalCorrect, ' || amount', autoTrade.amount, '  || betType: ', autoTrade.betType);
 
 console.log(userHistory);
 

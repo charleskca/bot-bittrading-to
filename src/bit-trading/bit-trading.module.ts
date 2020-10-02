@@ -1,4 +1,4 @@
-import { Module, HttpModule } from '@nestjs/common';
+import { Module, HttpModule, forwardRef } from '@nestjs/common';
 import { ChartDataModule } from 'src/chart-data/chart-data.module';
 import { BitTradingService } from './bit-trading.service';
 import { Player, PlayerSchema } from './bit-trading.schema';

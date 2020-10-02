@@ -102,9 +102,7 @@ Vui lòng setup script trước khi bật tính năng auto trade
 `;
 
 export const PROFIT_TODAY_SUCCESS_TEMPLATE = (accountName, data) => `
-Profit report <b>${accountName}</b>: ${moment(data.FromDate).format(
-  'DD/MM/YYYY',
-)}
+Profit report <b>${accountName}</b>: ${moment(data.FromDate).format('DD/MM/YYYY')}
 - Begin: $${data.data.total.begin}
 - Waiting: $${data.data.total.waiting}
 - Deposit: $${data.data.total.deposit}
@@ -114,9 +112,7 @@ Profit report <b>${accountName}</b>: ${moment(data.FromDate).format(
 `;
 
 export const PROFIT_MONTH_SUCCESS_TEMPLATE = (accountName, data) => `
-Profit report <b>${accountName}</b>: ${moment(data.FromDate).format(
-  'DD/MM/YYYY',
-)} - ${moment(data.ToDate).format('DD/MM/YYYY')}
+Profit report <b>${accountName}</b>: ${moment(data.FromDate).format('DD/MM/YYYY')} - ${moment(data.ToDate).format('DD/MM/YYYY')}
 - Begin: $${data.data.total.begin}
 - Waiting: $${data.data.total.waiting}
 - Deposit: $${data.data.total.deposit}
@@ -129,3 +125,14 @@ export const BOT_ERROR_MESSAGE_TEMPLATE = `
 Chức năng bị lỗi, xin hãy thử lại sau,
 hoặc có thể báo cho dongnguyenvie@gmail.com
 `;
+
+export const GET_PROFILE_BOT_TEMPLATE = data => `
+id: ${data.id},
+is_bot: ${data.is_bot},
+first_name: ${data.first_name},
+last_name: ${data.last_name},
+username: ${data.username},
+language_code: ${data.language_code}
+`;
+
+export const SIGNAL_TEMPLATE = data => data.map(isBuy => (isBuy === 1 ? '🍏' : '🍎')).join(' ');

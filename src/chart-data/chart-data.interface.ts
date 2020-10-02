@@ -18,7 +18,7 @@ export interface ServerTime {
 }
 
 export interface BitTradingData {
-  data: ValueOf<CandleStick>[];
+  data: [string, number, number, number, number][];
   serverTime: ServerTime;
   history: CandleStick[];
 }
@@ -39,7 +39,4 @@ export function down(trend: Trend) {
   return trend === 'down' || trend === 1;
 }
 
-export type ChartHooks = Record<
-  keyof typeof CHART_DATA_HOOKS,
-  ((data: BitTradingDataDTO) => void)[]
->;
+export type ChartHooks = Record<keyof typeof CHART_DATA_HOOKS, ((data: BitTradingDataDTO) => void)[]>;

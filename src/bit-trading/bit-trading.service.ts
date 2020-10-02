@@ -16,6 +16,7 @@ import { QueueService } from 'src/queue/queue.service';
 import { RedisService } from 'src/redis/redis.service';
 import { isExpired, scriptUtils } from './bit-trading.util';
 import { AutoTrade, defaultUserHistory, IUserHistory } from './AutoTrade';
+import { BotTelegramSignalService } from 'src/bot-telegram/bot-telegram.signal';
 
 @Injectable()
 export class BitTradingService implements OnModuleInit {
@@ -41,13 +42,10 @@ export class BitTradingService implements OnModuleInit {
 
   async watchChartDataChanged(data: BitTradingDataDTO) {
     // Version của bitrading remove history property, de fix lai sau
-    if (!data.history) return;
-    // console.log("data.history", data)
     // console.log(data.history.map(e => e.type));
     // console.log(data.serverTime.canOrder);
     if (data.serverTime.canOrder) {
       if (this._orderedFlg || Number(data.serverTime.second) > 25) return;
-      //
       this._orderedFlg = true;
       console.log('data.serverTime.second', data.serverTime.second);
       const playerRecords = (await this.redisService.getPlayerTrades()) || {};
@@ -86,7 +84,7 @@ export class BitTradingService implements OnModuleInit {
           const userHistory = this._lastOrder[player.accountName];
           const playerAutoTrade = new AutoTrade(player.script, userHistory, historyData);
 
-          this._lastOrder[player.accountName] = playerAutoTrade.betType;
+          this._lastOrder[player.accountName].lastOrderType = playerAutoTrade.betType;
           if (!playerAutoTrade.isSignalCorrect) return;
           this._lastOrder[player.accountName] = {
             ...this._lastOrder[player.accountName],

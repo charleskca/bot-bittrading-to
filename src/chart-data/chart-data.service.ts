@@ -31,7 +31,6 @@ export class ChartDataService implements OnModuleInit {
 
   private _bindObservers() {
     this._socket.addEventListener(CHART_EVENT.chartData, (data: BitTradingData) => {
-      console.log('data', data);
       const bitTradingData = plainToClass(BitTradingDataDTO, data);
       this._data = bitTradingData;
       // call Hooks
