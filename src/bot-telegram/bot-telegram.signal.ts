@@ -29,6 +29,7 @@ export class BotTelegramSignalService implements OnModuleInit {
   }
 
   private _bindObservers() {
+    if (process.env.ENABLE_SIGNAL_BOT !== 'true') return;
     this.chartDataService.addHook(CHART_DATA_HOOKS.afterChartDataChanged, data => this.watchChartDataChanged(data));
     // start
     this._bot.onText(/^\/help|start$/, (msg, match) => {
@@ -47,9 +48,11 @@ export class BotTelegramSignalService implements OnModuleInit {
       if (!this._isSendSignal) return;
       this._isSendSignal = false;
       const signalHistory = data.history.map(e => e.type);
-      const workspaceId = '963106161';
-      this.botSendMessage(workspaceId, SIGNAL_TEMPLATE(signalHistory), {
-        parse_mode: 'HTML',
+      const workspaceIds = ['963106161', '244598583'];
+      workspaceIds.forEach(workspaceId => {
+        this.botSendMessage(workspaceId, SIGNAL_TEMPLATE(signalHistory), {
+          parse_mode: 'HTML',
+        });
       });
     } else {
       this._isSendSignal = true;
