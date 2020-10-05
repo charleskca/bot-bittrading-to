@@ -139,14 +139,11 @@ export class AutoTrade {
     let result: (string | number)[] = [];
     const orderGroupsParse = this.orderGroupsParse;
     if (this.orderScriptType === PLAY_TYPE.normal.val) {
-      let capitalManagement = this.capitalManagement;
-      if (this.capitalManagement >= orderGroupsParse.length) {
-        // Reset capital management
-        capitalManagement = 0;
-        // this._hooks[HOOK_TYPES.userHistoryChanged].forEach(hook => {
-        //   hook(this.userHistory);
-        // });
-      }
+      let capitalManagement = this.capitalManagement % orderGroupsParse.length;
+      // if (this.capitalManagement >= orderGroupsParse.length || this.isLastWon) {
+      //   // Reset capital management
+      //   capitalManagement = 0;
+      // }
       const scriptOrdered = orderGroupsParse[capitalManagement];
       result = this._parseAmountAndType(scriptOrdered);
     } else if (this.orderScriptType === PLAY_TYPE.multiplyLose.val) {
